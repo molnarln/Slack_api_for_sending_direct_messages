@@ -22,23 +22,27 @@ namespace Slack_Api_Practice.Controllers
         }
 
         [HttpPost("slack")]
-        public IActionResult SendEmail([FromForm] string email, [FromForm] string messageToSend )
+        public IActionResult SendEmail([FromForm] string email, [FromForm] string messageToSend)
         {
+            //Create client with default bearer token header:
             var Client = new HttpClient();
-            Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", configuration["Token"]);
-
-            var request = new HttpRequestMessage(HttpMethod.Post, "https://slack.com/api/users.lookupByEmail");
+            Client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", configuration["SlackToken"]);
+            //Create an email user lookup request:
+            var emailLookupRequest = new HttpRequestMessage(HttpMethod.Post, "https://slack.com/api/users.lookupByEmail");
 
             var list = new List<KeyValuePair<string, string>>();
             list.Add(new KeyValuePair<string, string>("email", email));
-  
-            request.Content = new FormUrlEncodedContent(list);
 
-            var response = Client.SendAsync(request).Result;
+            emailLookupRequest.Content = new FormUrlEncodedContent(list);
+            var response = Client.SendAsync(emailLookupRequest).Result;
+
             EmailLookupResponse responseObject = new EmailLookupResponse();
-            responseObject = JsonConvert.DeserializeObject<EmailLookupResponse>(response.Content.ReadAsStringAsync().Result);
-            string responseString = response.Content.ReadAsStringAsync().Result;
 
+            //Deserialize the response (first create a string from the request's content, 
+            //then deserialize it.
+            responseObject = JsonConvert.DeserializeObject<EmailLookupResponse>(response.Content.ReadAsStringAsync().Result);
+            
+            //Create the post message request:
             var postMessageRequest = new HttpRequestMessage(HttpMethod.Post, "https://slack.com/api/chat.postMessage");
 
             var messageRequestBody = new List<KeyValuePair<string, string>>();
@@ -48,7 +52,7 @@ namespace Slack_Api_Practice.Controllers
 
             Client.SendAsync(postMessageRequest);
 
-            return Ok(new {messageSentTo = email, userId = responseObject.user.id });
+            return Ok(new { addressee = email, userID = responseObject.user.id, message = messageToSend });
         }
     }
 }
